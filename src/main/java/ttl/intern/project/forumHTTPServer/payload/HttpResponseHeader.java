@@ -2,7 +2,7 @@ package ttl.intern.project.forumHTTPServer.payload;
 
 public class HttpResponseHeader {
 	private String errorCode;
-	private String errorMessage;
+	private String message;
 	
 	public HttpResponseHeader() {
 		
@@ -10,7 +10,7 @@ public class HttpResponseHeader {
 	
 	public HttpResponseHeader(String errorCode, String errorMessage) {
 		this.errorCode = errorCode;
-		this.errorMessage = errorMessage;
+		this.message = errorMessage;
 	}
 
 	public String getErrorCode() {
@@ -22,10 +22,10 @@ public class HttpResponseHeader {
 	}
 
 	public String getErrorMessage() {
-		return errorMessage;
+		return message;
 	}
 
 	public void setErrorMessage(String errorMessage) {
-		this.errorMessage = errorMessage;
+		this.message = errorMessage;
 	}
 }

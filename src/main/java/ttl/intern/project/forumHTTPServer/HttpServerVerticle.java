@@ -13,6 +13,9 @@ import io.vertx.ext.web.api.RequestParameters;
 import io.vertx.ext.web.handler.BodyHandler;
 import ttl.intern.project.forumHTTPServer.exception.LoginException;
 import ttl.intern.project.forumHTTPServer.payload.LoginRequest;
+import ttl.intern.project.forumHTTPServer.payload.LoginResponse;
+import ttl.intern.project.forumHTTPServer.payload.SignupRequest;
+import ttl.intern.project.forumHTTPServer.payload.SignupResponse;
 import ttl.intern.project.forumHTTPServer.validation.DeleteArticleRequestValidationHandler;
 import ttl.intern.project.forumHTTPServer.validation.GetArticleRequestValidationHandler;
 import ttl.intern.project.forumHTTPServer.validation.GetArticlesRequestValidationHandler;
@@ -40,7 +43,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 		router.get("/").handler(new GetArticlesRequestValidationHandler()).handler(this::getArticles);
 		router.get("/articles").handler(new GetArticlesRequestValidationHandler()).handler(this::getArticles);
 		router.get("/articles/:articleid").handler(new GetArticleRequestValidationHandler()).handler(this::getArticle);
-
+		
+		
 		
 		server.requestHandler(router).listen(8080);
 	}
@@ -51,15 +55,27 @@ public class HttpServerVerticle extends AbstractVerticle {
 		
 		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(login), new DeliveryOptions().addHeader("action", "user-login"), res -> {
 			if (res.succeeded()) {
-				rc.response().putHeader("content-type", "application/json").end(res.result().body().toString());
+				LoginResponse response = new LoginResponse(null, null, res.result().body().toString());
+				rc.response().putHeader("content-type", "application/json").end(JsonObject.mapFrom(response).encodePrettily());
 			} else {
-				throw new LoginException("invalid", res.cause());
+				//TODO
 			}
 		});
 	}
 	
 	public void signup(RoutingContext rc) {
-		//return message
+		RequestParameters params = rc.get("parsedParameters");
+		SignupRequest signup = new SignupRequest(params.formParameter("username").getString(), params.formParameter("password").getString());
+		
+		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(signup), new DeliveryOptions().addHeader("action", "user-signup"), res -> {
+			if (res.succeeded()) {
+				SignupResponse response = new SignupResponse();
+				rc.response().putHeader("content-type", "application/json").end(JsonObject.mapFrom(response).encodePrettily());
+			} else {
+				//TODO
+			}
+		});
+				
 	}
 	
 	public void getArticles(RoutingContext rc) {

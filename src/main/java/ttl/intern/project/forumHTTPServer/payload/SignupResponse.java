@@ -5,7 +5,7 @@ public class SignupResponse extends HttpResponseHeader{
 		
 	}
 	
-	public SignupResponse(String errorCode, String errorMessage) {
-		super(errorCode, errorMessage);
+	public SignupResponse(String errorCode, String message) {
+		super(errorCode, message);
 	}
 }
