@@ -7,12 +7,15 @@ import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.RequestParameters;
 import io.vertx.ext.web.handler.BodyHandler;
 import ttl.intern.project.forumHTTPServer.exception.LoginException;
+import ttl.intern.project.forumHTTPServer.payload.GetArticlesRequest;
+import ttl.intern.project.forumHTTPServer.payload.GetArticlesResponse;
 import ttl.intern.project.forumHTTPServer.payload.LoginRequest;
 import ttl.intern.project.forumHTTPServer.payload.LoginResponse;
 import ttl.intern.project.forumHTTPServer.payload.SignupRequest;
@@ -74,7 +77,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 		
 		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(signup), new DeliveryOptions().addHeader("action", "user-signup"), res -> {
 			if (res.succeeded()) {
-				SignupResponse response = new SignupResponse();
+				SignupResponse response = new SignupResponse("0", "");
 				rc.response().end(JsonObject.mapFrom(response).encodePrettily());
 			} else {
 				//TODO
@@ -84,9 +87,29 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void getArticles(RoutingContext rc) {
-		RequestParameters params = rc.get("parsedParameters");
+		setResponseHeader(rc.response());
 		
-//		vertx.eventBus().send("mongo.auth", new JsonObject().put("jwt", params.headerParameter("Authentication").getString()), new DeliveryOptions().);
+		RequestParameters params = rc.get("parsedParameters");
+		GetArticlesRequest request = new GetArticlesRequest(params.headerParameter("Authorization").getString());
+		
+		//TODO auth
+//		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(request), new DeliveryOptions().addHeader("action", "indexArticle"), res -> {
+//			if (res.succeeded()) {
+//				
+//			}
+//		});
+		
+		vertx.eventBus().send("mongo.article", new JsonObject(), new DeliveryOptions().addHeader("action", "indexArticle"), res -> {
+			if (res.succeeded()) {
+				System.out.println(res.result().body().toString());
+				
+				JsonObject json = new JsonObject().put("errorCode", "0").put("message", "").put("data", res.result().body().toString());
+				rc.response().end(json.encodePrettily());
+			} else {
+				res.cause().printStackTrace();
+			}
+		});
+		
 	}
 	
 	public void getArticle(RoutingContext rc) {
