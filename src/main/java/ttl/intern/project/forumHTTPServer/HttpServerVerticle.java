@@ -6,6 +6,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -50,13 +51,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void login(RoutingContext rc) {
+		setResponseHeader(rc.response());
+		
 		RequestParameters params = rc.get("parsedParameters");
 		LoginRequest login = new LoginRequest(params.formParameter("username").getString(), params.formParameter("password").getString());
 		
 		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(login), new DeliveryOptions().addHeader("action", "user-login"), res -> {
 			if (res.succeeded()) {
-				LoginResponse response = new LoginResponse(null, null, res.result().body().toString());
-				rc.response().putHeader("content-type", "application/json").end(JsonObject.mapFrom(response).encodePrettily());
+				LoginResponse response = new LoginResponse("0", "", res.result().body().toString());
+				rc.response().end(JsonObject.mapFrom(response).encodePrettily());
 			} else {
 				//TODO
 			}
@@ -64,13 +67,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void signup(RoutingContext rc) {
+		setResponseHeader(rc.response());
+		
 		RequestParameters params = rc.get("parsedParameters");
 		SignupRequest signup = new SignupRequest(params.formParameter("username").getString(), params.formParameter("password").getString());
 		
 		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(signup), new DeliveryOptions().addHeader("action", "user-signup"), res -> {
 			if (res.succeeded()) {
 				SignupResponse response = new SignupResponse();
-				rc.response().putHeader("content-type", "application/json").end(JsonObject.mapFrom(response).encodePrettily());
+				rc.response().end(JsonObject.mapFrom(response).encodePrettily());
 			} else {
 				//TODO
 			}
@@ -79,8 +84,9 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void getArticles(RoutingContext rc) {
-		rc.response().end("get articles");
-		//return list of articles
+		RequestParameters params = rc.get("parsedParameters");
+		
+//		vertx.eventBus().send("mongo.auth", new JsonObject().put("jwt", params.headerParameter("Authentication").getString()), new DeliveryOptions().);
 	}
 	
 	public void getArticle(RoutingContext rc) {
@@ -100,6 +106,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 		//return message
 	}
 	
-	
+	private void setResponseHeader(HttpServerResponse response) {
+		response
+		.putHeader("Content-type", "application/json")
+		.putHeader("Access-Control-Allow-Origin", "*")
+		.putHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+	}
 	
 }
