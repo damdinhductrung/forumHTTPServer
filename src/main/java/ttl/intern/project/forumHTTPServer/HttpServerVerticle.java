@@ -7,6 +7,7 @@ import ttl.intern.project.forumHTTPServer.model.*;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
@@ -67,9 +68,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 		vertx.eventBus().send("mongo.auth", JsonObject.mapFrom(login), new DeliveryOptions().addHeader("action", "user-login"), res -> {
 			if (res.succeeded()) {
 				LoginResponse response = new LoginResponse("0", "", res.result().body().toString());
-				rc.response().end(JsonObject.mapFrom(response).encodePrettily());
+				rc.response().end(JsonObject.mapFrom(response).encodePrettily());	
 			} else {
-				//TODO
+				ReplyException cause = (ReplyException) res.cause();
+				if (cause.failureCode() == EBCode.ERROR_LOGIN_INVALID.ordinal()) {
+					rc.response().end(JsonObject.mapFrom(new LoginResponse(HttpCode.INVALID_USERNAME_PASSWORD, cause.getMessage(), "")).encodePrettily());
+				} else {
+					rc.response().end(JsonObject.mapFrom(new LoginResponse(HttpCode.SERVER_ERROR, cause.getMessage(), "")).encodePrettily());
+				}
 			}
 		});
 	}
@@ -85,7 +91,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 				SignupResponse response = new SignupResponse("0", "");
 				rc.response().end(JsonObject.mapFrom(response).encodePrettily());
 			} else {
-				//TODO
+				ReplyException cause = (ReplyException) res.cause();
+				if (cause.failureCode() == EBCode.ERROR_SIGNUP_USERNAME_EXITED.ordinal()) {
+					rc.response().end(JsonObject.mapFrom(new SignupResponse(HttpCode.SIGNUP_USERNAME_EXITED, cause.getMessage())).encodePrettily());
+				} else {
+					rc.response().end(JsonObject.mapFrom(new SignupResponse(HttpCode.SERVER_ERROR, cause.getMessage())).encodePrettily());
+				}
 			}
 		});
 				
