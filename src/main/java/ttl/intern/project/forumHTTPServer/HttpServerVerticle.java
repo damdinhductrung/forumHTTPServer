@@ -15,16 +15,22 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.RequestParameters;
 import io.vertx.ext.web.handler.BodyHandler;
+import ttl.intern.project.forumHTTPServer.payload.DeleteArticleRequest;
 import ttl.intern.project.forumHTTPServer.payload.GetArticleResponse;
 import ttl.intern.project.forumHTTPServer.payload.GetArticlesResponse;
 import ttl.intern.project.forumHTTPServer.payload.LoginRequest;
 import ttl.intern.project.forumHTTPServer.payload.LoginResponse;
+import ttl.intern.project.forumHTTPServer.payload.SaveArticleRequest;
+import ttl.intern.project.forumHTTPServer.payload.SaveArticleResponse;
 import ttl.intern.project.forumHTTPServer.payload.SignupRequest;
 import ttl.intern.project.forumHTTPServer.payload.SignupResponse;
+import ttl.intern.project.forumHTTPServer.payload.UpdateArticleRequest;
+import ttl.intern.project.forumHTTPServer.payload.UpdateArticleResponse;
 import ttl.intern.project.forumHTTPServer.validation.DeleteArticleRequestValidationHandler;
 import ttl.intern.project.forumHTTPServer.validation.LoginRequestValidationHandler;
 import ttl.intern.project.forumHTTPServer.validation.SaveArticleRequestValidationHandler;
 import ttl.intern.project.forumHTTPServer.validation.SignupRequestValidationHandler;
+import ttl.intern.project.forumHTTPServer.validation.UpdateArticleRequestValidationHandler;
 
 public class HttpServerVerticle extends AbstractVerticle {
 	
@@ -40,7 +46,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 		router.post("/login").handler(new LoginRequestValidationHandler()).handler(this::login);
 		router.post("/signup").handler(new SignupRequestValidationHandler()).handler(this::signup);
 		router.post("/articles").handler(new SaveArticleRequestValidationHandler()).handler(this::saveArticle);
-		router.put("/articles/:articleid").handler(new SaveArticleRequestValidationHandler()).handler(this::updateArticle);
+		router.put("/articles/:articleid").handler(new UpdateArticleRequestValidationHandler()).handler(this::updateArticle);
 		router.delete("/articles/:articleid").handler(new DeleteArticleRequestValidationHandler()).handler(this::deleteArticle);
 		
 		router.get("/").handler(this::getArticles);
@@ -86,6 +92,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void getArticles(RoutingContext rc) {
+		setResponseHeader(rc.response());
+		
 		vertx.eventBus().send("mongo.article", new JsonObject(), new DeliveryOptions().addHeader("action", "indexArticle"), res -> {
 			if (res.succeeded()) {
 				ArrayList<Article> list = new ArrayList<>();
@@ -99,7 +107,9 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void getArticle(RoutingContext rc) {
-		vertx.eventBus().send("mongo.article", new JsonObject(), new DeliveryOptions().addHeader("action", "getArticle"), res -> {
+		setResponseHeader(rc.response());
+		
+		vertx.eventBus().send("mongo.article", new JsonObject().put("_id", rc.request().getParam("articleid")), new DeliveryOptions().addHeader("action", "getArticle"), res -> {
 			if (res.succeeded()) {
 				
 				JsonObject json = new JsonObject(res.result().body().toString());
@@ -115,16 +125,93 @@ public class HttpServerVerticle extends AbstractVerticle {
 	}
 	
 	public void saveArticle(RoutingContext rc) {
-		//return message
+		setResponseHeader(rc.response());
+		
+		RequestParameters params = rc.get("parsedParameters");
+		SaveArticleRequest request = new SaveArticleRequest(params.headerParameter("Authorization").getString().substring(7), params.formParameter("title").getString(), params.formParameter("content").getString());
+		
+		vertx.eventBus().send("mongo.auth", new JsonObject().put("jwt", request.getToken()), new DeliveryOptions().addHeader("action", "user-authorization"), res -> {
+			if (res.succeeded()) {
+				
+				JsonObject user = new JsonObject(res.result().body().toString());
+				
+				vertx.eventBus().send("mongo.article", new JsonObject().put("title", request.getTitle()).put("content", request.getContent()).put("username", user.getString("username")), new DeliveryOptions().addHeader("action", "saveArticle"), response -> {
+					if (response.succeeded()) {
+						SaveArticleResponse httpResponse = new SaveArticleResponse("0", "", new JsonObject(response.result().body().toString()).getString("_id"));
+						
+						rc.response().end(new JsonObject().mapFrom(httpResponse).encodePrettily());
+					} else {
+						response.cause().printStackTrace();
+						//TODO
+					}
+				});
+				
+			} else {
+				res.cause().printStackTrace();
+				//TODO
+			}
+		});
 	}
 	
 	public void updateArticle(RoutingContext rc) {
-		rc.response().end("update article");
-		//return message
+		setResponseHeader(rc.response());
+		
+		RequestParameters params = rc.get("parsedParameters");
+		UpdateArticleRequest request = new UpdateArticleRequest(params.headerParameter("Authorization").getString().substring(7), params.pathParameter("articleid").getString(), params.formParameter("content").getString());
+		
+		vertx.eventBus().send("mongo.auth", new JsonObject().put("jwt", request.getToken()), new DeliveryOptions().addHeader("action", "user-authorization"), res -> {
+			if (res.succeeded()) {
+				
+				JsonObject user = new JsonObject(res.result().body().toString());
+				
+				vertx.eventBus().send("mongo.article", new JsonObject().put("_id", request.getId()).put("content", request.getContent()).put("username", user.getString("username")), new DeliveryOptions().addHeader("action", "updateArticle"), response -> {
+					if (response.succeeded()) {
+											
+						UpdateArticleResponse httpResponse = new UpdateArticleResponse("0", "");
+						
+						rc.response().end(new JsonObject().mapFrom(httpResponse).encodePrettily());
+					} else {
+						response.cause().printStackTrace();
+						//TODO
+					}
+				});
+				
+			} else {
+				res.cause().printStackTrace();
+				//TODO
+			}
+		});
+		
 	}
 	
 	public void deleteArticle(RoutingContext rc) {
-		//return message
+		setResponseHeader(rc.response());
+
+		RequestParameters params = rc.get("parsedParameters");
+		DeleteArticleRequest request = new DeleteArticleRequest(params.headerParameter("Authorization").getString().substring(7), params.pathParameter("articleid").getString());
+		
+		vertx.eventBus().send("mongo.auth", new JsonObject().put("jwt", request.getToken()), new DeliveryOptions().addHeader("action", "user-authorization"), res -> {
+			if (res.succeeded()) {
+				
+				JsonObject user = new JsonObject(res.result().body().toString());
+				
+				vertx.eventBus().send("mongo.article", new JsonObject().put("_id", request.getId()).put("username", user.getString("username")), new DeliveryOptions().addHeader("action", "deleteArticle"), response -> {
+					if (response.succeeded()) {
+											
+						UpdateArticleResponse httpResponse = new UpdateArticleResponse("0", "");
+						
+						rc.response().end(new JsonObject().mapFrom(httpResponse).encodePrettily());
+					} else {
+						response.cause().printStackTrace();
+						//TODO
+					}
+				});
+				
+			} else {
+				res.cause().printStackTrace();
+				//TODO
+			}
+		});
 	}
 	
 	private void setResponseHeader(HttpServerResponse response) {
